@@ -1,8 +1,12 @@
 package com.g13cs3219.matching_service.services;
 
+import java.time.Instant;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import com.g13cs3219.matching_service.dto.responses.MatchResult;
@@ -22,12 +26,7 @@ public class MessageService {
      * @param userId The ID of the user to send the message to.
      */
     public void sendTimeoutMessage(String userId) {
-        log.info("Sending timeout message to user: {}", userId);
-        messagingTemplate.convertAndSendToUser(
-            userId,
-            "/queue/match",
-            "No match found"
-        );
+        sendMessage(userId, "No match found");
     }
 
     /**
@@ -37,16 +36,8 @@ public class MessageService {
      */
     public void sendMatchFoundMessage(MatchResult match) {
         log.info("Sending match found message to users: {} and {}", match.getUserId1(), match.getUserId2());
-        messagingTemplate.convertAndSendToUser(
-            match.getUserId1() + "",
-            "/queue/match",
-            match
-        );
-        messagingTemplate.convertAndSendToUser(
-            match.getUserId2() + "",
-            "/queue/match",
-            match
-        );
+        sendMatch(match.getUserId1() + "", match);
+        sendMatch(match.getUserId2() + "", match);
     }
 
     /**
@@ -55,11 +46,25 @@ public class MessageService {
      * @param userId The ID of the user to send the message to.
      */
     public void sendCancelMessage(String userId) {
-        log.info("Sending match cancelled message to user: {}", userId);
+        sendMessage(userId, "Match cancelled");
+    }
+
+    private void sendMessage(String userId, String message) {
+        log.info("Sending message: " + message + " to user " + userId);
         messagingTemplate.convertAndSendToUser(
             userId,
             "/queue/match",
-            "Match cancelled"
+            message
+        );
+    }
+
+    @Async
+    private void sendMatch(String userId, MatchResult matchResult) {
+        log.info("Sending match result to user " + userId);
+        messagingTemplate.convertAndSendToUser(
+            userId,
+            "/queue/match",
+            matchResult
         );
     }
 }
