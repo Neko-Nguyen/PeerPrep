@@ -107,7 +107,7 @@ export default function MatchPage() {
       const response = await questionApi.match({ topic, difficulty });
       return response.data.question;
     } catch (error) {
-      console.error('Error fetching random question:', error);
+      console.error('Error fetching question:', error);
       return null;
     }
   };
