@@ -7,6 +7,7 @@ networks:
 volumes:
   user-db-data:
   question-db-data:
+  redis-data:
 
 services:
 
@@ -49,6 +50,39 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: peerprep-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - peerprep-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: peerprep-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    networks:
+      - peerprep-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   user-service:
     build:
@@ -94,6 +128,37 @@ services:
     depends_on:
       question-db:
         condition: service_healthy
+    networks:
+      - peerprep-net
+    restart: unless-stopped
+
+  matching-service:
+    build:
+      context: ./matching-service
+      dockerfile: Dockerfile
+    container_name: peerprep-matching-service
+    ports:
+      - "8082:8082"
+    environment:
+      SERVER_PORT:               8082
+      SPRING_RABBITMQ_HOST:      rabbitmq
+      SPRING_RABBITMQ_PORT:      5672
+      SPRING_RABBITMQ_USERNAME:  ${RABBITMQ_USER:-guest}
+      SPRING_RABBITMQ_PASSWORD:  ${RABBITMQ_PASS:-guest}
+      SPRING_DATA_REDIS_HOST:    redis
+      SPRING_DATA_REDIS_PORT:    6379
+      USER_SERVICE_URL:          http://user-service:8080
+      CORS_ALLOWED_ORIGINS:      ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      RABBITMQ_QUEUE_NAME:       ${RABBITMQ_QUEUE_NAME:-matching-queue}
+      RABBITMQ_EXCHANGE_NAME:    ${RABBITMQ_EXCHANGE_NAME:-matching-exchange}
+      RABBITMQ_ROUTING_KEY:      ${RABBITMQ_ROUTING_KEY:-matching-key}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      user-service:
+        condition: service_started
     networks:
       - peerprep-net
     restart: unless-stopped
