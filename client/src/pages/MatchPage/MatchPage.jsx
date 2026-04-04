@@ -45,6 +45,7 @@ export default function MatchPage() {
     setErr('');
     
     try {
+      connect();
       await matchingApi.match({ 
         userId: user.userId, 
         topic: topic, 
@@ -53,7 +54,6 @@ export default function MatchPage() {
       
       setIsMatching(true);
       setTimer(30);
-      connect();
     } catch (error) {
       setErr(error?.message || 'Unable to start matching. Please try again.');
     }
@@ -69,7 +69,7 @@ export default function MatchPage() {
     const stompClient = new Client({
       webSocketFactory: () => socket,
       debug: (str) => {
-        // console.log(str);
+        console.log(str);
       },
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
@@ -98,7 +98,7 @@ export default function MatchPage() {
       const response = await questionApi.match({ topic: topic, difficulty: difficulty });
       return response.data.question;
     } catch (error) {
-      console.error('Error fetching random question:', error);
+      console.error('Error fetching question:', error);
       return null;
     }  
   };
@@ -115,12 +115,13 @@ export default function MatchPage() {
       setErr('Match cancelled.');
     } else {
       const matchInfo = JSON.parse(data);
-      // console.log('Received match info:', matchInfo);
+      console.log('Received match info:', matchInfo);
+      
       const question = await fetchQuestion(
         matchInfo.topic,
         matchInfo.difficulty
       );
-
+      
       if (question) {
         startCollaboration(
           matchInfo.userId1, 
@@ -133,6 +134,7 @@ export default function MatchPage() {
     }
     setIsMatching(false);
     disconnect();
+    console.log('Raw message:', data);
   };
 
   const handleCancel = () => {
